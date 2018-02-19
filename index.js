@@ -18,6 +18,8 @@ var defaultContentDisposition = staticValue(null)
 var defaultStorageClass = staticValue('STANDARD')
 var defaultSSE = staticValue(null)
 var defaultSSEKMS = staticValue(null)
+var deafultPartSize = staticValue(null)
+var defaultQueueSize = staticValue(null)
 
 function defaultKey (req, file, cb) {
   crypto.randomBytes(16, function (err, raw) {
@@ -48,7 +50,9 @@ function collect (storage, req, file, cb) {
     storage.getContentDisposition.bind(storage, req, file),
     storage.getStorageClass.bind(storage, req, file),
     storage.getSSE.bind(storage, req, file),
-    storage.getSSEKMS.bind(storage, req, file)
+    storage.getSSEKMS.bind(storage, req, file),
+    storage.getPartSize.bind(storage, req, file),
+    storage.getQueueSize.bind(storage, req, file)
   ], function (err, values) {
     if (err) return cb(err)
 
@@ -66,7 +70,9 @@ function collect (storage, req, file, cb) {
         contentType: contentType,
         replacementStream: replacementStream,
         serverSideEncryption: values[7],
-        sseKmsKeyId: values[8]
+        sseKmsKeyId: values[8],
+        partSize: values[9],
+        queueSize: values[10]
       })
     })
   })
@@ -144,6 +150,18 @@ function S3Storage (opts) {
     case 'undefined': this.getSSEKMS = defaultSSEKMS; break
     default: throw new TypeError('Expected opts.sseKmsKeyId to be undefined, string, or function')
   }
+  
+  switch(typeof opts.partSize) {
+    case 'number' : this.getPartSize = staticValue(opts.partSize); break
+    case 'undefined' : this.getPartSize = defaultPartSize; break
+    default: throw new TypeError('Expected opts.partSize to be undefined or number')
+  }
+
+  switch(typeof opts.queueSize) {
+    case 'number' : this.getQueueSize = staticValue(opts.queueSize); break
+    case 'undefined' : this.getQueueSize = defaultQueueSize; break
+    default: throw new TypeError('Expected opts.queueSize to be undefined or number')
+  }
 }
 
 S3Storage.prototype._handleFile = function (req, file, cb) {
@@ -164,12 +182,16 @@ S3Storage.prototype._handleFile = function (req, file, cb) {
       SSEKMSKeyId: opts.sseKmsKeyId,
       Body: (opts.replacementStream || file.stream)
     }
+    var options = {
+        partSize: opts.partSize,
+        queueSize: opts.queueSize
+    }
 
     if (opts.contentDisposition) {
       params.ContentDisposition = opts.contentDisposition
     }
-
-    var upload = this.s3.upload(params)
+    
+    var upload = this.s3.upload(params, options)
 
     upload.on('httpUploadProgress', function (ev) {
       if (ev.total) currentSize = ev.total
