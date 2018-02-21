@@ -18,7 +18,7 @@ var defaultContentDisposition = staticValue(null)
 var defaultStorageClass = staticValue('STANDARD')
 var defaultSSE = staticValue(null)
 var defaultSSEKMS = staticValue(null)
-var deafultPartSize = staticValue(null)
+var defaultPartSize = staticValue(null)
 var defaultQueueSize = staticValue(null)
 
 function defaultKey (req, file, cb) {
